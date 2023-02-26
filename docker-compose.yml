@@ -1,0 +1,12 @@
+
+
+version: '3.8'
+
+services: 
+  web:
+    container_name: hc-bot
+    image: seanysdan/hc-bot:latest
+    build: 
+      context: .
+    ports:
+      - "5000:5000"
