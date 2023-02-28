@@ -55,6 +55,14 @@ app.post("/webhook", (req, res) => {
       // will only ever contain one message, so we get index 0
       let webhook_event = entry.messaging[0];
       console.log(webhook_event);
+      let sender = webhook_event.sender.id;
+      if (webhook_event.message && webhook_event.message.text) {
+        let text = webhook_event.message.text;
+        sendTextMessage(
+          sender,
+          "Text received, echo: " + text.substring(0, 200)
+        );
+      }
     });
 
     // Returns a '200 OK' response to all requests
@@ -64,3 +72,25 @@ app.post("/webhook", (req, res) => {
     res.sendStatus(404);
   }
 });
+
+function sendTextMessage(sender, text) {
+  let messageData = { text: text };
+  request(
+    {
+      url: "https://graph.facebook.com/v2.6/me/messages",
+      qs: { access_token: process.env.TOKEN },
+      method: "POST",
+      json: {
+        recipient: { id: sender },
+        message: messageData,
+      },
+    },
+    function (error, response, body) {
+      if (error) {
+        console.log("Error sending messages: ", error);
+      } else if (response.body.error) {
+        console.log("Error: ", response.body.error);
+      }
+    }
+  );
+}
