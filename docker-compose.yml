@@ -1,11 +1,9 @@
-
-
-version: '3.8'
+version: '3.3'
 
 services: 
   web:
     container_name: hc-bot
-    image: seanysdan/hc-bot:latest
+    image: seanysdan/hc-bot:0.0.3
     build: 
       context: .
     ports:

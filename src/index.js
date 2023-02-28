@@ -19,9 +19,6 @@ app.listen(app.get('port'), function() {
 	console.log('running on port', app.get('port'));
 });
 
-app.get('/mybot', function (req, res) {
-	if (req.query['hub.verify_token'] === 'THIS_IS_MY_VERIFICATION_TOKEN') {
-		res.send(req.query['hub.challenge']);
-	}
-	res.send('Wrong token!');
+app.get('/webhook', function (req, res) {
+	res.send("test")
 });
