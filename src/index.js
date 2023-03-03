@@ -66,8 +66,8 @@ app.post("/webhook", async (req, res) => {
           temperature: 0,
           max_tokens: 7,
         });
-        for (choice in response.data.choices) {
-          console.log(choice.text);
+        for (var i = 0; i < response.data.choices.length; i++) {
+          console.log(response.data.choices[i].text);
         }
         //console.log({ choice: response.data.choices[0] });
         sendTextMessage(sender, response.data.choices[0].text);
