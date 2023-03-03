@@ -62,7 +62,13 @@ app.post("/webhook", async (req, res) => {
       } else {
         const response = await openai.createChatCompletion({
           model: "gpt-3.5-turbo",
-		  messages = [{ "role": "user", "content": text }]
+          messages: [
+            { role: "system", content: `You are a ${grade} grade teacher.` },
+            {
+              role: "user",
+              content: `Write a lesson plan over ${subject}. Be extremely detailed, have the objectives at the top. The plan should be a minimum of 3000 words.`,
+            },
+          ],
         });
         console.log({ response });
         sendTextMessage(sender, response.choices[0].message.content);
