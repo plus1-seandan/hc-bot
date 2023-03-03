@@ -60,17 +60,12 @@ app.post("/webhook", async (req, res) => {
       if (text === "pr") {
         sendTextMessage(sender, prayer_request);
       } else {
-        const response = await openai.createCompletion({
-          model: "text-davinci-003",
-          prompt: text,
-          temperature: 0,
-          max_tokens: 7,
-        });
-        for (var i = 0; i < response.data.choices.length; i++) {
-          console.log(response.data.choices[i].text);
-        }
-        //console.log({ choice: response.data.choices[0] });
-        sendTextMessage(sender, response.data.choices[0].text);
+        const response = await openai.ChatCompletion.create(
+          (model = "gpt-3.5-turbo"),
+          (messages = [{ role: "user", content: text }])
+        );
+        console.log({ response });
+        sendTextMessage(sender, response.choices[0].message.content);
       }
     }
   }
