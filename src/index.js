@@ -60,7 +60,7 @@ app.post("/webhook", async (req, res) => {
       if (text === "pr") {
         sendTextMessage(sender, prayer_request);
       } else {
-        const response = await openai.ChatCompletion.create(
+        const response = await openai.createChatCompletion(
           (model = "gpt-3.5-turbo"),
           (messages = [{ role: "user", content: text }])
         );
