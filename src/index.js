@@ -62,7 +62,7 @@ app.post("/webhook", async (req, res) => {
       } else {
         const response = await openai.createChatCompletion({
           model: "gpt-3.5-turbo",
-		  messages = [{ role: "user", content: text }]
+		  messages = [{ "role": "user", "content": text }]
         });
         console.log({ response });
         sendTextMessage(sender, response.choices[0].message.content);
