@@ -50,7 +50,7 @@ app.get("/webhook", (req, res) => {
 });
 
 // Creates the endpoint for our webhook
-app.post("/webhook", (req, res) => {
+app.post("/webhook", async (req, res) => {
   let messaging_events = req.body.entry[0].messaging;
   for (let i = 0; i < messaging_events.length; i++) {
     let event = req.body.entry[0].messaging[i];
@@ -60,13 +60,13 @@ app.post("/webhook", (req, res) => {
       if (text === "pr") {
         sendTextMessage(sender, prayer_request);
       } else {
-		const response = await openai.createCompletion({
-			model: "text-davinci-003",
-			prompt: text,
-			temperature: 0,
-			max_tokens: 7,
-		  });
-		  sendTextMessage(sender, response);
+        const response = await openai.createCompletion({
+          model: "text-davinci-003",
+          prompt: text,
+          temperature: 0,
+          max_tokens: 7,
+        });
+        sendTextMessage(sender, response);
       }
     }
   }
