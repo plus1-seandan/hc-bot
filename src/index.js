@@ -64,14 +64,11 @@ app.post("/webhook", async (req, res) => {
           model: "gpt-3.5-turbo",
           messages: [
             { role: "system", content: `You are a ${grade} grade teacher.` },
-            {
-              role: "user",
-              content: `Write a lesson plan over ${subject}. Be extremely detailed, have the objectives at the top. The plan should be a minimum of 3000 words.`,
-            },
+            { role: "user", content: text },
           ],
         });
         console.log({ response });
-        sendTextMessage(sender, response.choices[0].message.content);
+        sendTextMessage(sender, response.data.choices[0].message.content);
       }
     }
   }
