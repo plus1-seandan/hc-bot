@@ -4,11 +4,17 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const request = require("request");
 const app = express();
+const { Configuration, OpenAIApi } = require("openai");
 
 app.set("port", process.env.PORT || 5000);
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
 // Home
 app.get("/", function (req, res) {
@@ -51,7 +57,17 @@ app.post("/webhook", (req, res) => {
     let sender = event.sender.id;
     if (event.message && event.message.text) {
       let text = event.message.text;
-      sendTextMessage(sender, prayer_request);
+      if (text === "pr") {
+        sendTextMessage(sender, prayer_request);
+      } else {
+		const response = await openai.createCompletion({
+			model: "text-davinci-003",
+			prompt: text,
+			temperature: 0,
+			max_tokens: 7,
+		  });
+		  sendTextMessage(sender, response);
+      }
     }
   }
   res.sendStatus(200);
