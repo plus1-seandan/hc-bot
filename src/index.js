@@ -63,7 +63,10 @@ app.post("/webhook", async (req, res) => {
         const response = await openai.createChatCompletion({
           model: "gpt-3.5-turbo",
           messages: [
-            { role: "system", content: `You are a ${grade} grade teacher.` },
+            {
+              role: "system",
+              content: `You are a college professor of philosophy.`,
+            },
             { role: "user", content: text },
           ],
         });
