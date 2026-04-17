@@ -72,6 +72,11 @@ typings/
 .env
 .env.test
 
+# Google Cloud service account keys — NEVER commit
+gcp-key.json
+*-service-account.json
+service-account*.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 
