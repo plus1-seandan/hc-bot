@@ -1,14 +1,11 @@
-FROM node:lts
+FROM node:lts-alpine
 
 WORKDIR /app
 
-RUN npm install -g @anthropic-ai/claude-code
+COPY package.json package-lock*.json ./
 
-# Pre-configure Claude to skip first-run theme selection
-RUN mkdir -p /root/.claude && \
-    printf '{"theme":"dark"}\n' > /root/.claude/settings.json
+RUN npm install
 
-ENV DISCORD_TOKEN=""
-ENV ANTHROPIC_API_KEY=""
+COPY . .
 
-CMD ["sh", "-c", "script -q -c 'claude --channels plugin:discord@claude-plugins-official' /dev/null"]
+CMD ["node", "src/bot.js"]

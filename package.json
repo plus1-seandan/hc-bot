@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "body-parser": "^1.20.2",
+    "discord.js": "^14.26.3",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "openai": "^3.2.1",
@@ -11,7 +13,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "claude --channels plugin:discord@claude-plugins-official",
+    "start": "node src/bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
