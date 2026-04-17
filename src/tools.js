@@ -2,6 +2,7 @@
 
 const sheet = require("./sheet");
 const sheetWrite = require("./sheetWrite");
+const newsletter = require("./newsletter");
 
 const TOOLS = [
   {
@@ -88,6 +89,28 @@ const TOOLS = [
     },
   },
   {
+    name: "get_newsletter",
+    description:
+      "Get the current weekly newsletter from Lighthouse (the parent church). Covers church-wide announcements, sermons, upcoming events, retreats, mission trips, baptisms, etc. NOT house-church-specific — for HC hosting/RSVPs/birthdays/PRs, use the HC-specific tools. Call this whenever the user asks about church-wide announcements, sermons, or events not covered by the HC tools.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "save_newsletter",
+    description:
+      "Save content as the current weekly Lighthouse newsletter (the parent church's weekly newsletter, not an HC-specific one). This REPLACES the previous newsletter (latest-only). Only call this AFTER the user has confirmed — do NOT call on the first message where they paste content. Always show a summary and ask 'save this as the newsletter?' first, and only save once they say yes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description:
+            "The full newsletter text to save, verbatim. Preserve formatting (line breaks, bullets) as sent by the user.",
+        },
+      },
+      required: ["content"],
+    },
+  },
+  {
     name: "mark_attending",
     description:
       "Mark a house church member's RSVP for the current week on the 'This month' tab. This is a WRITE operation that edits the Google Sheet. Always confirm the full name before calling if there's ambiguity. Set status to 'dinner' (attending + eating), 'hc_only' (attending but skipping dinner), 'cant_join' (not coming), or 'clear' (uncheck everything). The tool will unset the other two status columns automatically.",
@@ -116,7 +139,7 @@ const TOOLS = [
   },
 ];
 
-async function dispatch(name, input) {
+async function dispatch(name, input, context = {}) {
   const args = input || {};
   switch (name) {
     case "get_hosting_schedule":
@@ -131,6 +154,18 @@ async function dispatch(name, input) {
       return sheet.getPrayerRequests(args);
     case "get_hosting_history":
       return sheet.getHostingHistory(args);
+    case "get_newsletter":
+      return newsletter.getLatestNewsletter();
+    case "save_newsletter":
+      try {
+        return await newsletter.saveNewsletter({
+          content: args.content,
+          submittedBy: context.discordUsername,
+          submittedByDisplayName: context.discordName,
+        });
+      } catch (err) {
+        return { ok: false, error: err.message || String(err) };
+      }
     case "mark_attending":
       try {
         return await sheetWrite.markAttending(args);
