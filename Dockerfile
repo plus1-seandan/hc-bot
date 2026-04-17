@@ -1,15 +1,10 @@
-FROM --platform=linux/amd64 node:lts-alpine
+FROM node:lts
 
-EXPOSE 5000
+WORKDIR /app
 
-WORKDIR /src
+RUN npm install -g @anthropic-ai/claude-code
 
-RUN npm install i npm@latest -g
+ENV DISCORD_TOKEN=""
+ENV ANTHROPIC_API_KEY=""
 
-COPY package.json package-lock*.json ./
-
-RUN npm install
-
-COPY . .
-
-CMD ["node", "src/index.js"]
+CMD ["claude", "--channels", "plugin:discord@claude-plugins-official"]

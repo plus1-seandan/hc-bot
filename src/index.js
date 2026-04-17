@@ -1,5 +1,13 @@
 "use strict";
 require("dotenv").config();
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
 const express = require("express");
 const bodyParser = require("body-parser");
 const request = require("request");
