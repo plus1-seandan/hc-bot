@@ -72,6 +72,9 @@ typings/
 .env
 .env.test
 
+# Discord user id → HC sheet roster name (local / PII)
+data/discord-sheet-names.json
+
 # Google Cloud service account keys — NEVER commit
 gcp-key.json
 *-service-account.json

@@ -3,6 +3,7 @@
 const sheet = require("./sheet");
 const sheetWrite = require("./sheetWrite");
 const newsletter = require("./newsletter");
+const discordSheetMap = require("./discordSheetMap");
 
 const TOOLS = [
   {
@@ -111,6 +112,22 @@ const TOOLS = [
     },
   },
   {
+    name: "set_my_sheet_name",
+    description:
+      "Persist the current Discord user's HC roster name exactly as it must appear on the Google Sheet (This month / RSVP tab). Call when they ask to remember their sheet name, register how they appear on the sheet, or fix a wrong mapping. Only affects the sender's Discord account — pass the exact full name from the sheet (e.g. 'Sean Dan').",
+    input_schema: {
+      type: "object",
+      properties: {
+        sheet_name: {
+          type: "string",
+          description:
+            "Exact HC member name as it appears on the sheet RSVP list (e.g. 'Sean Dan').",
+        },
+      },
+      required: ["sheet_name"],
+    },
+  },
+  {
     name: "mark_attending",
     description:
       "Mark a house church member's RSVP for the current week on the 'This month' tab. This is a WRITE operation that edits the Google Sheet. Always confirm the full name before calling if there's ambiguity. Set status to 'dinner' (attending + eating), 'hc_only' (attending but skipping dinner), 'cant_join' (not coming), or 'clear' (uncheck everything). The tool will unset the other two status columns automatically.",
@@ -177,6 +194,11 @@ async function dispatch(name, input, context = {}) {
           notFound: err.notFound || undefined,
         };
       }
+    case "set_my_sheet_name":
+      return discordSheetMap.setSheetName(
+        context.discordUserId,
+        args.sheet_name
+      );
     default:
       return { error: `Unknown tool: ${name}` };
   }

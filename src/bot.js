@@ -18,15 +18,51 @@ const {
 } = require("discord.js");
 const Anthropic = require("@anthropic-ai/sdk");
 const { TOOLS, dispatch } = require("./tools");
+const { getSheetName } = require("./discordSheetMap");
 
 const MODEL = process.env.HC_BOT_MODEL || "claude-sonnet-4-6";
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 6;
 
-function buildSystemPrompt({ discordName, discordUsername } = {}) {
+/** Recent Discord-visible turns per conversation (so "yes" after a confirm still has context). */
+const MAX_CONVERSATION_MESSAGES = 40;
+const conversationHistories = new Map();
+
+function conversationKey(message) {
+  const isDM = message.channel.type === ChannelType.DM;
+  if (isDM) return `dm:${message.channel.id}`;
+  return `guild:${message.channel.id}:${message.author.id}`;
+}
+
+function getConversationHistory(key) {
+  return conversationHistories.get(key) || [];
+}
+
+function appendConversationTurn(key, userText, assistantText) {
+  const prev = conversationHistories.get(key) || [];
+  const next = prev.concat([
+    { role: "user", content: userText },
+    { role: "assistant", content: assistantText },
+  ]);
+  conversationHistories.set(
+    key,
+    next.length > MAX_CONVERSATION_MESSAGES
+      ? next.slice(-MAX_CONVERSATION_MESSAGES)
+      : next
+  );
+}
+
+function buildSystemPrompt({
+  discordName,
+  discordUsername,
+  sheetMemberName,
+} = {}) {
+  const sheetMapNote = sheetMemberName
+    ? ` They have registered their HC roster name on the sheet as **${sheetMemberName}** — for their own RSVPs and "me"/"I"/"my", use this exact string in tools (e.g. mark_attending). You do not need to ask which sheet name is theirs unless they contradict this or are clearly acting for someone else.`
+    : "";
   const whoAmI =
     discordName || discordUsername
-      ? `\n## Current user\nThe person messaging you on Discord is "${discordName || discordUsername}" (Discord handle: @${discordUsername || discordName}). When they say "me", "I", or "my", they mean this person. Match them to an HC member by name — if unsure, call get_member_info first or ask them to clarify before writing to the sheet.`
+      ? `\n## Current user\nThe person messaging you on Discord is "${discordName || discordUsername}" (Discord handle: @${discordUsername || discordName}). When they say "me", "I", or "my", they mean this person.${sheetMapNote}${sheetMemberName ? "" : " Match them to an HC member by name — if unsure, call get_member_info first or ask them to clarify before writing to the sheet."}`
       : "";
 
   return `You are HC Bot, a helpful assistant for Sean's house church (HC) on Discord.
@@ -59,7 +95,11 @@ ${whoAmI}
 
 ## Writing to the sheet (mark_attending)
 - Anyone can mark anyone — you don't need to verify identity, but always confirm the full name you're about to update.
-- If the requesting user says "mark me" and their Discord name doesn't obviously match an HC member, ask once before writing.
+${
+  sheetMemberName
+    ? `- This Discord account is registered to HC sheet name **${sheetMemberName}**. For "mark me" (or similar) for themselves, use that exact name in mark_attending without asking which sheet name is theirs.`
+    : `- If the requesting user says "mark me" and their Discord name doesn't obviously match an HC member, ask once before writing.`
+}
 - If a name is ambiguous (e.g. "mark Sarah" but there are two Sarahs), list the candidates and ask which one.
 - After a successful write, confirm what you did in plain English (e.g. "Got it — marked you down for dinner this Friday").
 - Prayer requests are read-only for now. If someone asks to add/edit a PR, say that's coming soon and ask them to edit the sheet directly.
@@ -159,16 +199,26 @@ client.on("messageCreate", async (message) => {
   );
   if (!content) return;
 
+  const historyKey = conversationKey(message);
+  const priorMessages = getConversationHistory(historyKey);
+  const discordUserId = message.author.id;
+  const sheetMemberName = getSheetName(discordUserId);
+
   try {
     await message.channel.sendTyping();
     const reply = await runAgent({
       userContent: content,
+      priorMessages,
       authorTag: message.author.tag,
+      discordUserId,
+      sheetMemberName,
       discordName: message.member?.displayName || message.author.globalName || message.author.username,
       discordUsername: message.author.username,
       onToolUse: () => message.channel.sendTyping().catch(() => {}),
     });
-    await sendChunked(message, reply || "(empty response)");
+    const outgoing = reply?.trim() ? reply : "(empty response)";
+    appendConversationTurn(historyKey, content, outgoing);
+    await sendChunked(message, outgoing);
   } catch (err) {
     console.error("[claude] error:", err);
     try {
@@ -189,13 +239,23 @@ function extractText(blocks) {
 
 async function runAgent({
   userContent,
+  priorMessages = [],
   authorTag,
+  discordUserId,
+  sheetMemberName,
   discordName,
   discordUsername,
   onToolUse,
 }) {
-  const messages = [{ role: "user", content: userContent }];
-  const systemPrompt = buildSystemPrompt({ discordName, discordUsername });
+  const messages = [
+    ...priorMessages.map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: userContent },
+  ];
+  const systemPrompt = buildSystemPrompt({
+    discordName,
+    discordUsername,
+    sheetMemberName,
+  });
 
   for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
     const response = await anthropic.messages.create({
@@ -238,6 +298,7 @@ async function runAgent({
         result = await dispatch(block.name, block.input, {
           discordName,
           discordUsername,
+          discordUserId,
         });
       } catch (err) {
         console.error(`[tool] ${block.name} threw:`, err);
