@@ -59,11 +59,21 @@ function appendConversationTurn(key, userText, assistantText) {
 }
 
 async function buildPriorMessages(message, storedHistory) {
+  // Ensure channel is not partial before checking type
+  let channel = message.channel;
+  if (channel.partial) {
+    try {
+      channel = await channel.fetch();
+    } catch (err) {
+      console.error("[channel] failed to fetch partial channel:", err);
+    }
+  }
+
   // In a thread, fetch the full thread history from Discord so the bot has
   // context from messages it wasn't part of before being tagged.
-  if (THREAD_TYPES.has(message.channel.type)) {
+  if (THREAD_TYPES.has(channel.type)) {
     try {
-      const fetched = await message.channel.messages.fetch({
+      const fetched = await channel.messages.fetch({
         limit: 50,
         before: message.id,
       });
@@ -83,9 +93,7 @@ async function buildPriorMessages(message, storedHistory) {
   // if it isn't already in stored history.
   if (message.reference?.messageId) {
     try {
-      const refMsg = await message.channel.messages.fetch(
-        message.reference.messageId
-      );
+      const refMsg = await channel.messages.fetch(message.reference.messageId);
       const refContent = refMsg.content.replace(/<@!?\d+>/g, "").trim();
       if (refContent && !storedHistory.some((m) => m.content === refContent)) {
         const refRole =
@@ -98,6 +106,22 @@ async function buildPriorMessages(message, storedHistory) {
   }
 
   return storedHistory;
+}
+
+// Anthropic requires strictly alternating user/assistant turns.
+// Merge any consecutive same-role messages by joining their content.
+function mergeConsecutiveTurns(messages) {
+  return messages.reduce((acc, msg) => {
+    if (acc.length > 0 && acc[acc.length - 1].role === msg.role) {
+      acc[acc.length - 1] = {
+        role: msg.role,
+        content: acc[acc.length - 1].content + "\n" + msg.content,
+      };
+    } else {
+      acc.push({ role: msg.role, content: msg.content });
+    }
+    return acc;
+  }, []);
 }
 
 function buildSystemPrompt({
@@ -299,10 +323,10 @@ async function runAgent({
   discordUsername,
   onToolUse,
 }) {
-  const messages = [
+  const messages = mergeConsecutiveTurns([
     ...priorMessages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: userContent },
-  ];
+  ]);
   const systemPrompt = buildSystemPrompt({
     discordName,
     discordUsername,
