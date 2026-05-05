@@ -24,6 +24,12 @@ const MODEL = process.env.HC_BOT_MODEL || "claude-sonnet-4-6";
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 6;
 
+const THREAD_TYPES = new Set([
+  ChannelType.PublicThread,
+  ChannelType.PrivateThread,
+  ChannelType.AnnouncementThread,
+]);
+
 /** Recent Discord-visible turns per conversation (so "yes" after a confirm still has context). */
 const MAX_CONVERSATION_MESSAGES = 40;
 const conversationHistories = new Map();
@@ -50,6 +56,48 @@ function appendConversationTurn(key, userText, assistantText) {
       ? next.slice(-MAX_CONVERSATION_MESSAGES)
       : next
   );
+}
+
+async function buildPriorMessages(message, storedHistory) {
+  // In a thread, fetch the full thread history from Discord so the bot has
+  // context from messages it wasn't part of before being tagged.
+  if (THREAD_TYPES.has(message.channel.type)) {
+    try {
+      const fetched = await message.channel.messages.fetch({
+        limit: 50,
+        before: message.id,
+      });
+      return [...fetched.values()]
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+        .map((m) => ({
+          role: m.author.id === client.user.id ? "assistant" : "user",
+          content: m.content.replace(/<@!?\d+>/g, "").trim(),
+        }))
+        .filter((m) => m.content.length > 0);
+    } catch (err) {
+      console.error("[thread] failed to fetch thread history:", err);
+    }
+  }
+
+  // In a regular channel reply, prepend the referenced message as context
+  // if it isn't already in stored history.
+  if (message.reference?.messageId) {
+    try {
+      const refMsg = await message.channel.messages.fetch(
+        message.reference.messageId
+      );
+      const refContent = refMsg.content.replace(/<@!?\d+>/g, "").trim();
+      if (refContent && !storedHistory.some((m) => m.content === refContent)) {
+        const refRole =
+          refMsg.author.id === client.user.id ? "assistant" : "user";
+        return [{ role: refRole, content: refContent }, ...storedHistory];
+      }
+    } catch (err) {
+      console.error("[reply] failed to fetch referenced message:", err);
+    }
+  }
+
+  return storedHistory;
 }
 
 function buildSystemPrompt({
@@ -203,7 +251,8 @@ client.on("messageCreate", async (message) => {
   if (!content) return;
 
   const historyKey = conversationKey(message);
-  const priorMessages = getConversationHistory(historyKey);
+  const storedHistory = getConversationHistory(historyKey);
+  const priorMessages = await buildPriorMessages(message, storedHistory);
   const discordUserId = message.author.id;
   const sheetMemberName = getSheetName(discordUserId);
 
